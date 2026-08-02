@@ -4,19 +4,36 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 class CheckRole
 {
-    public function handle(Request $request, Closure $next, ...$roles)
+    /**
+     * Handle an incoming request.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \Closure  $next
+     * @param  string  ...$roles
+     * @return \Symfony\Component\HttpFoundation\Response
+     */
+    public function handle(Request $request, Closure $next, ...$roles): Response
     {
         $user = $request->user();
-        if (!$user || !in_array($user->role->value ?? $user->role, $roles)) {
+
+        // 1. Ensure user is authenticated
+        if (!$user) {
             return response()->json([
-                'message' => 'Access denied. You do not have permission to perform this action.'
-            ], 403);
+                'message' => 'Unauthenticated.'
+            ], 401);
         }
-        // Check if logged-in user's role string exists in allowed roles
-        if (!$user || !in_array($user->role->value, $roles)) {
+
+        // 2. Extract role string (whether $user->role is a PHP Enum or string)
+        $userRole = $user->role instanceof \BackedEnum 
+            ? $user->role->value 
+            : (string) $user->role;
+
+        // 3. Verify user's role exists in allowed $roles array
+        if (!in_array($userRole, $roles, true)) {
             return response()->json([
                 'message' => 'Access denied. Unauthorized role.'
             ], 403);
