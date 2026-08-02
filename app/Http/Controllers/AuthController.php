@@ -43,21 +43,18 @@ class AuthController extends Controller
             'password' => 'required|string|min:6',
             'role'     => ['nullable', 'string', new Enum(UserRole::class)],
         ]);
-        $otp = (string) random_int(100000, 999999);
+       
         $user = User::create([
             'name'     => $fields['name'],
             'email'    => $fields['email'],
             'password' => Hash::make($fields['password']),
             'role'     => $fields['role'] ?? UserRole::STUDENT->value,
-            'verification_code'            => $otp,
-        'verification_code_expires_at' => now()->addMinutes(15),
         ]);
-        (new SendVerificationCode($otp))->sendViaResend($user);
         // Generate Sanctum API token
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'message' => 'Registration successful. Please check your email for the verification code.',
+            'message' => 'Registration successful.',
             'user'  => new UserResource($user),
             'token' => $token,
         ], 201);
@@ -102,12 +99,7 @@ class AuthController extends Controller
         return response()->json(['message' => 'Invalid credentials.'], 401);
     }
 
-    if (is_null($user->email_verified_at)) {
-        return response()->json([
-            'message'          => 'Your email address is not verified. Please verify your email before logging in.',
-            'is_verified'      => false,
-        ], 403);
-    }
+   
 
         // Generate Sanctum API token
         $token = $user->createToken('auth_token')->plainTextToken;
@@ -129,60 +121,6 @@ class AuthController extends Controller
             'message' => 'Successfully logged out',
         ], 200);
     }
-    public function verifyEmail(Request $request)
-{
-    $request->validate([
-        'email' => 'required|email',
-        'code'  => 'required|string|size:6',
-    ]);
+   
 
-    $user = User::where('email', $request->email)->first();
-
-    if (!$user) {
-        return response()->json(['message' => 'User not found.'], 404);
-    }
-
-    if ($user->verification_code !== $request->code) {
-        return response()->json(['message' => 'Invalid verification code.'], 422);
-    }
-
-    if (now()->greaterThan($user->verification_code_expires_at)) {
-        return response()->json(['message' => 'Verification code has expired. Please request a new one.'], 422);
-    }
-
-    // Mark user as verified & clear code
-    $user->update([
-        'email_verified_at'            => now(),
-        'verification_code'            => null,
-        'verification_code_expires_at' => null,
-    ]);
-
-    return response()->json([
-        'message' => 'Email verified successfully! You can now log in.',
-    ]);
-}
-public function resendCode(Request $request)
-{
-    $request->validate(['email' => 'required|email']);
-    $user = User::where('email', $request->email)->first();
-
-    if (!$user) {
-        return response()->json(['message' => 'User not found.'], 404);
-    }
-
-    if ($user->email_verified_at) {
-        return response()->json(['message' => 'This account is already verified.'], 400);
-    }
-
-    $otp = (string) random_int(100000, 999999);
-    $user->update([
-        'verification_code' => $otp,
-        'verification_code_expires_at' => now()->addMinutes(15),
-    ]);
-
-    // Send email via Mailtrap or Mail facade
-    // ...
-
-    return response()->json(['message' => 'A new verification code has been sent.']);
-}
 }

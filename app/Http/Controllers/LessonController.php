@@ -77,7 +77,7 @@ class LessonController extends Controller
     // 3. GET SINGLE
    public function show($id)
     {
-        // 👈 Decrypt the ID
+        //  Decrypt the ID
         $decryptedId = Lesson::decryptId($id);
 
         if (!$decryptedId) {
@@ -158,17 +158,25 @@ class LessonController extends Controller
     return new LessonResource($lesson);
 }
     // 5. DELETE
-  public function destroy($id)
-    {
-        $decryptedId = Lesson::decryptId($id);
-
-        if (!$decryptedId) {
-            return response()->json(['message' => 'Invalid or tampered ID provided.'], 400);
-        }
-
-        $lesson = Lesson::findOrFail($decryptedId);
-        $lesson->delete();
-
-        return response()->json(['message' => 'Lesson deleted successfully']);
+  // 5. DELETE
+public function destroy($id)
+{
+    // 1. Gate check for authorization
+    if (Gate::denies('manage-lessons')) {
+        return response()->json(['message' => 'Unauthorized action.'], 403);
     }
+
+    // 2. Decrypt ID
+    $decryptedId = Lesson::decryptId($id);
+
+    if (!$decryptedId) {
+        return response()->json(['message' => 'Invalid or tampered ID provided.'], 400);
+    }
+
+    // 3. Find and Delete
+    $lesson = Lesson::findOrFail($decryptedId);
+    $lesson->delete(); // <-- This will work once the Observer/Model event is fixed above
+
+    return response()->json(['message' => 'Lesson deleted successfully']);
+}
 }
